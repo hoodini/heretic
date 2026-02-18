@@ -185,6 +185,59 @@ Silh = Mean silhouette coefficient of residuals for good/bad clusters
 ```
 
 
+## Architecture
+
+```mermaid
+flowchart TD
+    CLI["CLI / Config File / Env Vars"] --> Settings["⚙️ Settings<br/><i>config.py</i>"]
+    Settings --> Main["🚀 main.py<br/><i>Entry Point</i>"]
+
+    Main --> LoadModel["Load Model"]
+    LoadModel --> ModelClass["🧠 Model<br/><i>model.py</i>"]
+
+    Main --> LoadPrompts["Load Prompts"]
+    LoadPrompts --> Utils["🔧 utils.py<br/><i>load_prompts, batchify,<br/>empty_cache, Prompt</i>"]
+
+    ModelClass --> |"get_residuals_batched()"| Residuals["Compute Residuals<br/><i>good & bad prompts</i>"]
+    Residuals --> RefusalDirs["Calculate Refusal<br/>Directions"]
+
+    RefusalDirs --> Analyzer["🔬 Analyzer<br/><i>analyzer.py</i>"]
+    Analyzer --> |"--print-residual-geometry"| GeomTable["Residual Geometry<br/>Table"]
+    Analyzer --> |"--plot-residuals"| PaCMAP["PaCMAP Projections<br/>& Animated GIF"]
+
+    RefusalDirs --> Optuna["🔄 Optuna TPE<br/>Optimization Loop"]
+
+    Optuna --> Trial["Suggest Parameters<br/><i>AbliterationParameters</i>"]
+    Trial --> ResetModel["Reset Model<br/><i>zero LoRA weights</i>"]
+    ResetModel --> Abliterate["Abliterate<br/><i>model.abliterate()</i>"]
+    Abliterate --> Evaluate["Evaluate"]
+
+    Evaluate --> Evaluator["📊 Evaluator<br/><i>evaluator.py</i>"]
+    Evaluator --> |"get_logprobs_batched()"| KLD["KL Divergence"]
+    Evaluator --> |"count_refusals()"| Refusals["Refusal Count"]
+    KLD --> Score["Compute Score"]
+    Refusals --> Score
+    Score --> Optuna
+
+    Optuna --> Pareto["Pareto-Optimal<br/>Results"]
+    Pareto --> Save["💾 Save Model"]
+    Pareto --> Upload["☁️ Upload to<br/>Hugging Face"]
+    Pareto --> Chat["💬 Chat with<br/>Model"]
+
+    ModelClass -.-> |"PEFT / LoRA"| Abliterate
+    ModelClass -.-> |"bitsandbytes"| Quantization["4-bit Quantization"]
+
+    classDef module fill:#2563eb,color:#fff,stroke:#1d4ed8
+    classDef process fill:#7c3aed,color:#fff,stroke:#6d28d9
+    classDef output fill:#059669,color:#fff,stroke:#047857
+    classDef config fill:#d97706,color:#fff,stroke:#b45309
+
+    class Settings,CLI config
+    class ModelClass,Evaluator,Analyzer,Utils module
+    class Residuals,RefusalDirs,Optuna,Trial,ResetModel,Abliterate,Evaluate,Score,LoadModel,LoadPrompts,Quantization process
+    class Pareto,Save,Upload,Chat,GeomTable,PaCMAP,KLD,Refusals output
+```
+
 ## How Heretic works
 
 Heretic implements a parametrized variant of directional ablation. For each
